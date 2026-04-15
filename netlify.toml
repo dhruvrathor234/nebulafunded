@@ -18,6 +18,12 @@
   force = true
 
 [[redirects]]
+  from = "/api/payment/health"
+  to = "/.netlify/functions/payment-health"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

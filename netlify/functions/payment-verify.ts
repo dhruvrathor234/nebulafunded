@@ -45,9 +45,10 @@ export const handler = async (event: any) => {
     };
   } catch (error) {
     console.error("Error verifying payment:", error);
+    const message = error instanceof Error ? error.message : "Internal server error";
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Internal server error" }),
+      body: JSON.stringify({ error: message }),
     };
   }
 };
