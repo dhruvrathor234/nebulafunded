@@ -14,6 +14,21 @@ function getRazorpayClient() {
   });
 }
 
+function getOrderErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  const candidate = error as any;
+  return (
+    candidate?.error?.description ||
+    candidate?.error?.reason ||
+    candidate?.description ||
+    candidate?.message ||
+    "Failed to create order"
+  );
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -37,6 +52,6 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json(order);
   } catch (error) {
     console.error("Error creating Razorpay order:", error);
-    return res.status(500).json({ error: "Failed to create order" });
+    return res.status(500).json({ error: getOrderErrorMessage(error) });
   }
 }

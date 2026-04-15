@@ -19,6 +19,21 @@ function requiredEnv(name: "RAZORPAY_KEY_ID" | "RAZORPAY_KEY_SECRET"): string {
   return value;
 }
 
+function getOrderErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  const candidate = error as any;
+  return (
+    candidate?.error?.description ||
+    candidate?.error?.reason ||
+    candidate?.description ||
+    candidate?.message ||
+    "Failed to create order"
+  );
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -48,7 +63,7 @@ async function startServer() {
       res.json(order);
     } catch (error) {
       console.error("Error creating Razorpay order:", error);
-      res.status(500).json({ error: "Failed to create order" });
+      res.status(500).json({ error: getOrderErrorMessage(error) });
     }
   });
 
@@ -71,6 +86,25 @@ async function startServer() {
       console.error("Error verifying payment:", error);
       res.status(500).json({ error: "Internal server error" });
     }
+  });
+
+  app.get("/api/payment/health", (req, res) => {
+    const checks = {
+      RAZORPAY_KEY_ID: Boolean(process.env.RAZORPAY_KEY_ID),
+      RAZORPAY_KEY_SECRET: Boolean(process.env.RAZORPAY_KEY_SECRET),
+      VITE_RAZORPAY_KEY_ID: Boolean(process.env.VITE_RAZORPAY_KEY_ID),
+    };
+
+    const missing = Object.entries(checks)
+      .filter(([, present]) => !present)
+      .map(([name]) => name);
+
+    res.status(missing.length === 0 ? 200 : 503).json({
+      ok: missing.length === 0,
+      checks,
+      missing,
+      service: "payment",
+    });
   });
 
   // Vite middleware for development

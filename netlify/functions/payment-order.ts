@@ -8,6 +8,21 @@ function requiredEnv(name: "RAZORPAY_KEY_ID" | "RAZORPAY_KEY_SECRET"): string {
   return value;
 }
 
+function getOrderErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  const candidate = error as any;
+  return (
+    candidate?.error?.description ||
+    candidate?.error?.reason ||
+    candidate?.description ||
+    candidate?.message ||
+    "Failed to create order"
+  );
+}
+
 export const handler = async (event: any) => {
   if (event.httpMethod !== "POST") {
     return {
@@ -47,7 +62,7 @@ export const handler = async (event: any) => {
     };
   } catch (error) {
     console.error("Error creating Razorpay order:", error);
-    const message = error instanceof Error ? error.message : "Failed to create order";
+    const message = getOrderErrorMessage(error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: message }),
