@@ -55,6 +55,38 @@ function analyzeEnvValue(value: string | undefined) {
   };
 }
 
+function normalizeKeyId(value: string | undefined): string {
+  if (!value) {
+    return "";
+  }
+
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+function getKeyFingerprint(value: string): string | null {
+  if (!value) {
+    return null;
+  }
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
+}
+
+function getKeyMode(value: string): "test" | "live" | "unknown" {
+  if (value.startsWith("rzp_test_")) {
+    return "test";
+  }
+  if (value.startsWith("rzp_live_")) {
+    return "live";
+  }
+  return "unknown";
+}
+
 function getOrderErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -137,6 +169,17 @@ async function startServer() {
       VITE_RAZORPAY_KEY_ID: diagnostics.VITE_RAZORPAY_KEY_ID.present,
     };
 
+    const backendKeyId = normalizeKeyId(process.env.RAZORPAY_KEY_ID);
+    const frontendKeyId = normalizeKeyId(process.env.VITE_RAZORPAY_KEY_ID);
+
+    const consistency = {
+      backendKeyIdFingerprint: getKeyFingerprint(backendKeyId),
+      frontendKeyIdFingerprint: getKeyFingerprint(frontendKeyId),
+      backendMode: getKeyMode(backendKeyId),
+      frontendMode: getKeyMode(frontendKeyId),
+      keyIdMatchesFrontend: Boolean(backendKeyId && frontendKeyId && backendKeyId === frontendKeyId),
+    };
+
     const missing = Object.entries(checks)
       .filter(([, present]) => !present)
       .map(([name]) => name);
@@ -145,6 +188,7 @@ async function startServer() {
       ok: missing.length === 0,
       checks,
       diagnostics,
+      consistency,
       missing,
       service: "payment",
     });
