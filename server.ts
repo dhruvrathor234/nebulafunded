@@ -11,19 +11,26 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function requiredEnv(name: "RAZORPAY_KEY_ID" | "RAZORPAY_KEY_SECRET"): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing ${name}`);
+  }
+  return value;
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json());
 
-  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-    throw new Error("Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET");
-  }
+  const razorpayKeyId = requiredEnv("RAZORPAY_KEY_ID");
+  const razorpayKeySecret = requiredEnv("RAZORPAY_KEY_SECRET");
 
   const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
+    key_id: razorpayKeyId,
+    key_secret: razorpayKeySecret,
   });
 
   // API Routes
@@ -51,7 +58,7 @@ async function startServer() {
 
       const sign = razorpay_order_id + "|" + razorpay_payment_id;
       const expectedSign = crypto
-        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+        .createHmac("sha256", razorpayKeySecret)
         .update(sign.toString())
         .digest("hex");
 
