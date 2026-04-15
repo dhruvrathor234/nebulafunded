@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { motion, AnimatePresence, useAnimation } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { 
   TrendingUp, 
   ShieldCheck, 
@@ -20,7 +20,7 @@ import {
   RefreshCcw,
   User
 } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth";
 import { auth } from "./firebase";
 import { Challenge } from "./types";
@@ -345,11 +345,6 @@ export default function App() {
   const openDashboard = (c: Challenge) => {
     setActiveChallenge(c);
     setView('DASHBOARD');
-  };
-
-  const resumeChallenge = (c: Challenge) => {
-    setActiveChallenge(c);
-    setView('TERMINAL');
   };
 
   const handleBreach = () => {
