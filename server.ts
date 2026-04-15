@@ -17,9 +17,13 @@ async function startServer() {
 
   app.use(express.json());
 
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    throw new Error("Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET");
+  }
+
   const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID || "rzp_live_SVW1H9xlRqsscV",
-    key_secret: process.env.RAZORPAY_KEY_SECRET || "bRxXoa1r2XzPCkzlwktQwHAz",
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
   });
 
   // API Routes
@@ -47,7 +51,7 @@ async function startServer() {
 
       const sign = razorpay_order_id + "|" + razorpay_payment_id;
       const expectedSign = crypto
-        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "bRxXoa1r2XzPCkzlwktQwHAz")
+        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
         .update(sign.toString())
         .digest("hex");
 
