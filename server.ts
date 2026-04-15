@@ -11,8 +11,13 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function stripInvisibleChars(value: string): string {
+  return value.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g, "");
+}
+
 function normalizeEnvValue(value: string): string {
-  const trimmed = value.trim();
+  const cleaned = stripInvisibleChars(value);
+  const trimmed = cleaned.trim();
   if (
     (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
     (trimmed.startsWith("'") && trimmed.endsWith("'"))
@@ -42,16 +47,19 @@ function analyzeEnvValue(value: string | undefined) {
       present: false,
       hasLeadingOrTrailingWhitespace: false,
       hasWrappingQuotes: false,
+      hasHiddenCharacters: false,
     };
   }
 
-  const trimmed = value.trim();
+  const cleaned = stripInvisibleChars(value);
+  const trimmed = cleaned.trim();
   return {
     present: trimmed.length > 0,
     hasLeadingOrTrailingWhitespace: trimmed !== value,
     hasWrappingQuotes:
       (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
       (trimmed.startsWith("'") && trimmed.endsWith("'")),
+    hasHiddenCharacters: cleaned !== value,
   };
 }
 
@@ -60,7 +68,7 @@ function normalizeKeyId(value: string | undefined): string {
     return "";
   }
 
-  const trimmed = value.trim();
+  const trimmed = stripInvisibleChars(value).trim();
   if (
     (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
     (trimmed.startsWith("'") && trimmed.endsWith("'"))
@@ -102,6 +110,16 @@ function getOrderErrorMessage(error: unknown): string {
   );
 }
 
+function getOrderErrorDetails(error: unknown) {
+  const candidate = error as any;
+  return {
+    code: candidate?.error?.code || candidate?.code || null,
+    reason: candidate?.error?.reason || candidate?.reason || null,
+    source: candidate?.error?.source || candidate?.source || null,
+    step: candidate?.error?.step || candidate?.step || null,
+  };
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -131,7 +149,10 @@ async function startServer() {
       res.json(order);
     } catch (error) {
       console.error("Error creating Razorpay order:", error);
-      res.status(500).json({ error: getOrderErrorMessage(error) });
+      res.status(500).json({
+        error: getOrderErrorMessage(error),
+        details: getOrderErrorDetails(error),
+      });
     }
   });
 

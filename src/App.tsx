@@ -288,7 +288,23 @@ export default function App() {
           (primaryResult?.data as any)?.error ||
           (primaryResult?.data as any)?.message ||
           "Request failed";
-        throw new Error(message);
+
+        const details =
+          (fallbackResult?.data as any)?.details ||
+          (primaryResult?.data as any)?.details;
+
+        const detailParts = [
+          details?.code ? `code=${details.code}` : "",
+          details?.reason ? `reason=${details.reason}` : "",
+          details?.source ? `source=${details.source}` : "",
+          details?.step ? `step=${details.step}` : "",
+        ].filter(Boolean);
+
+        throw new Error(
+          detailParts.length > 0
+            ? `${message} (${detailParts.join(", ")})`
+            : message
+        );
       };
 
       // 1. Create Order on Server

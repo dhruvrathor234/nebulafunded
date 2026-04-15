@@ -51,7 +51,7 @@ function normalizeKeyId(value: string | undefined): string {
     return "";
   }
 
-  const trimmed = value.trim();
+  const trimmed = stripInvisibleChars(value).trim();
   if (
     (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
     (trimmed.startsWith("'") && trimmed.endsWith("'"))
@@ -84,15 +84,22 @@ function analyzeEnvValue(value: string | undefined) {
       present: false,
       hasLeadingOrTrailingWhitespace: false,
       hasWrappingQuotes: false,
+      hasHiddenCharacters: false,
     };
   }
 
-  const trimmed = value.trim();
+  const cleaned = stripInvisibleChars(value);
+  const trimmed = cleaned.trim();
   return {
     present: trimmed.length > 0,
     hasLeadingOrTrailingWhitespace: trimmed !== value,
     hasWrappingQuotes:
       (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
       (trimmed.startsWith("'") && trimmed.endsWith("'")),
+    hasHiddenCharacters: cleaned !== value,
   };
+}
+
+function stripInvisibleChars(value: string): string {
+  return value.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g, "");
 }

@@ -1,7 +1,12 @@
 import Razorpay from "razorpay";
 
+function stripInvisibleChars(value: string): string {
+  return value.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g, "");
+}
+
 function normalizeEnvValue(value: string): string {
-  const trimmed = value.trim();
+  const cleaned = stripInvisibleChars(value);
+  const trimmed = cleaned.trim();
   if (
     (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
     (trimmed.startsWith("'") && trimmed.endsWith("'"))
@@ -47,6 +52,16 @@ function getOrderErrorMessage(error: unknown): string {
   );
 }
 
+function getOrderErrorDetails(error: unknown) {
+  const candidate = error as any;
+  return {
+    code: candidate?.error?.code || candidate?.code || null,
+    reason: candidate?.error?.reason || candidate?.reason || null,
+    source: candidate?.error?.source || candidate?.source || null,
+    step: candidate?.error?.step || candidate?.step || null,
+  };
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -70,6 +85,9 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json(order);
   } catch (error) {
     console.error("Error creating Razorpay order:", error);
-    return res.status(500).json({ error: getOrderErrorMessage(error) });
+    return res.status(500).json({
+      error: getOrderErrorMessage(error),
+      details: getOrderErrorDetails(error),
+    });
   }
 }
