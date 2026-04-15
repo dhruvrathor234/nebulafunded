@@ -106,6 +106,7 @@ const CandleAnimation = () => {
 };
 
 export default function App() {
+  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [view, setView] = useState<'LANDING' | 'TERMINAL' | 'BREACHED' | 'DASHBOARD' | 'PROFILE'>('LANDING');
   const [activeChallenge, setActiveChallenge] = useState<Challenge | null>(null);
@@ -244,6 +245,11 @@ export default function App() {
       return;
     }
 
+    if (!razorpayKeyId) {
+      alert("Payment is not configured. Please contact support.");
+      return;
+    }
+
     try {
       // 1. Create Order on Server
       const orderResponse = await fetch("/api/payment/order", {
@@ -265,7 +271,7 @@ export default function App() {
 
       // 2. Open Razorpay Checkout
       const options = {
-        key: "rzp_live_SVW1H9xlRqsscV", // Razorpay Key ID
+        key: razorpayKeyId,
         amount: order.amount,
         currency: order.currency,
         name: "Nebula Funded",
