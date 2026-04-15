@@ -251,18 +251,56 @@ export default function App() {
     }
 
     try {
+      const postWithFallback = async (
+        primaryUrl: string,
+        fallbackUrl: string,
+        payload: Record<string, unknown>
+      ) => {
+        const requestConfig: RequestInit = {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        };
+
+        const tryRequest = async (url: string) => {
+          try {
+            const response = await fetch(url, requestConfig);
+            const data = await response.json().catch(() => ({}));
+            return { response, data };
+          } catch {
+            return null;
+          }
+        };
+
+        const primaryResult = await tryRequest(primaryUrl);
+        if (primaryResult?.response.ok) {
+          return primaryResult.data;
+        }
+
+        const fallbackResult = await tryRequest(fallbackUrl);
+        if (fallbackResult?.response.ok) {
+          return fallbackResult.data;
+        }
+
+        const message =
+          (fallbackResult?.data as any)?.error ||
+          (fallbackResult?.data as any)?.message ||
+          (primaryResult?.data as any)?.error ||
+          (primaryResult?.data as any)?.message ||
+          "Request failed";
+        throw new Error(message);
+      };
+
       // 1. Create Order on Server
-      const orderResponse = await fetch("/api/payment/order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const order = await postWithFallback(
+        "/api/payment/order",
+        "/.netlify/functions/payment-order",
+        {
           amount: 1, // All accounts are 1 INR for now
           currency: "INR",
           receipt: `receipt_${Date.now()}`,
-        }),
-      });
-
-      const order = await orderResponse.json();
+        }
+      );
 
       if (!order.id) {
         alert("Failed to create payment order. Please try again.");
@@ -279,17 +317,15 @@ export default function App() {
         order_id: order.id,
         handler: async (response: any) => {
           // 3. Verify Payment on Server
-          const verifyResponse = await fetch("/api/payment/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+          const verification = await postWithFallback(
+            "/api/payment/verify",
+            "/.netlify/functions/payment-verify",
+            {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-            }),
-          });
-
-          const verification = await verifyResponse.json();
+            }
+          );
 
           if (verification.success) {
             // 4. Payment Successful - Add Challenge and Transaction
@@ -344,7 +380,11 @@ export default function App() {
       rzp.open();
     } catch (error) {
       console.error("Payment error:", error);
-      alert("An error occurred during the payment process.");
+      alert(
+        error instanceof Error
+          ? `Payment error: ${error.message}`
+          : "An error occurred during the payment process."
+      );
     }
   };
 

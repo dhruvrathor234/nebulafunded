@@ -47,9 +47,10 @@ export const handler = async (event: any) => {
     };
   } catch (error) {
     console.error("Error creating Razorpay order:", error);
+    const message = error instanceof Error ? error.message : "Failed to create order";
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Failed to create order" }),
+      body: JSON.stringify({ error: message }),
     };
   }
 };
