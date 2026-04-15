@@ -11,12 +11,48 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function normalizeEnvValue(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
 function requiredEnv(name: "RAZORPAY_KEY_ID" | "RAZORPAY_KEY_SECRET"): string {
-  const value = process.env[name];
+  const raw = process.env[name];
+  if (!raw) {
+    throw new Error(`Missing ${name}`);
+  }
+
+  const value = normalizeEnvValue(raw);
   if (!value) {
     throw new Error(`Missing ${name}`);
   }
+
   return value;
+}
+
+function analyzeEnvValue(value: string | undefined) {
+  if (!value) {
+    return {
+      present: false,
+      hasLeadingOrTrailingWhitespace: false,
+      hasWrappingQuotes: false,
+    };
+  }
+
+  const trimmed = value.trim();
+  return {
+    present: trimmed.length > 0,
+    hasLeadingOrTrailingWhitespace: trimmed !== value,
+    hasWrappingQuotes:
+      (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'")),
+  };
 }
 
 function getOrderErrorMessage(error: unknown): string {
@@ -89,10 +125,16 @@ async function startServer() {
   });
 
   app.get("/api/payment/health", (req, res) => {
+    const diagnostics = {
+      RAZORPAY_KEY_ID: analyzeEnvValue(process.env.RAZORPAY_KEY_ID),
+      RAZORPAY_KEY_SECRET: analyzeEnvValue(process.env.RAZORPAY_KEY_SECRET),
+      VITE_RAZORPAY_KEY_ID: analyzeEnvValue(process.env.VITE_RAZORPAY_KEY_ID),
+    };
+
     const checks = {
-      RAZORPAY_KEY_ID: Boolean(process.env.RAZORPAY_KEY_ID),
-      RAZORPAY_KEY_SECRET: Boolean(process.env.RAZORPAY_KEY_SECRET),
-      VITE_RAZORPAY_KEY_ID: Boolean(process.env.VITE_RAZORPAY_KEY_ID),
+      RAZORPAY_KEY_ID: diagnostics.RAZORPAY_KEY_ID.present,
+      RAZORPAY_KEY_SECRET: diagnostics.RAZORPAY_KEY_SECRET.present,
+      VITE_RAZORPAY_KEY_ID: diagnostics.VITE_RAZORPAY_KEY_ID.present,
     };
 
     const missing = Object.entries(checks)
@@ -102,6 +144,7 @@ async function startServer() {
     res.status(missing.length === 0 ? 200 : 503).json({
       ok: missing.length === 0,
       checks,
+      diagnostics,
       missing,
       service: "payment",
     });

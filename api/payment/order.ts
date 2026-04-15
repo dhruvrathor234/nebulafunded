@@ -1,8 +1,26 @@
 import Razorpay from "razorpay";
 
+function normalizeEnvValue(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
 function getRazorpayClient() {
-  const keyId = process.env.RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  const keyIdRaw = process.env.RAZORPAY_KEY_ID;
+  const keySecretRaw = process.env.RAZORPAY_KEY_SECRET;
+
+  if (!keyIdRaw || !keySecretRaw) {
+    throw new Error("Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET");
+  }
+
+  const keyId = normalizeEnvValue(keyIdRaw);
+  const keySecret = normalizeEnvValue(keySecretRaw);
 
   if (!keyId || !keySecret) {
     throw new Error("Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET");

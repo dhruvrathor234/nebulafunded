@@ -1,10 +1,27 @@
 import Razorpay from "razorpay";
 
+function normalizeEnvValue(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
 function requiredEnv(name: "RAZORPAY_KEY_ID" | "RAZORPAY_KEY_SECRET"): string {
-  const value = process.env[name];
+  const raw = process.env[name];
+  if (!raw) {
+    throw new Error(`Missing ${name}`);
+  }
+
+  const value = normalizeEnvValue(raw);
   if (!value) {
     throw new Error(`Missing ${name}`);
   }
+
   return value;
 }
 
