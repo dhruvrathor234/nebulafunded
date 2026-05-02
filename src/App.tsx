@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useAnimation } from "motion/react";
 import { 
   TrendingUp, 
   ShieldCheck, 
@@ -20,7 +20,7 @@ import {
   RefreshCcw,
   User
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth";
 import { auth } from "./firebase";
 import { Challenge } from "./types";
@@ -28,6 +28,8 @@ import Terminal from "./components/Terminal";
 import AccountDashboard from "./components/AccountDashboard";
 import AuthModal from "./components/AuthModal";
 import Profile from "./components/Profile";
+import PaymentModal from "./components/PaymentModal";
+import PromoBanner from "./components/PromoBanner";
 
 const HoverScaleText = ({ text, className, characterClassName }: { text: string; className?: string; characterClassName?: string }) => {
   return (
@@ -106,14 +108,14 @@ const CandleAnimation = () => {
 };
 
 export default function App() {
-  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [view, setView] = useState<'LANDING' | 'TERMINAL' | 'BREACHED' | 'DASHBOARD' | 'PROFILE'>('LANDING');
   const [activeChallenge, setActiveChallenge] = useState<Challenge | null>(null);
   const [userChallenges, setUserChallenges] = useState<Challenge[]>([]);
-  const [userTransactions, setUserTransactions] = useState<any[]>([]);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [pendingChallenge, setPendingChallenge] = useState<any | null>(null);
 
   // Auth Listener
   useEffect(() => {
@@ -123,26 +125,18 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Load user challenges and transactions from localStorage on mount
+  // Load user challenges from localStorage on mount
   useEffect(() => {
     const savedChallenges = localStorage.getItem('nebula_challenges');
     if (savedChallenges) {
       setUserChallenges(JSON.parse(savedChallenges));
     }
-    const savedTransactions = localStorage.getItem('nebula_transactions');
-    if (savedTransactions) {
-      setUserTransactions(JSON.parse(savedTransactions));
-    }
   }, []);
 
-  // Save user challenges and transactions to localStorage whenever they change
+  // Save user challenges to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('nebula_challenges', JSON.stringify(userChallenges));
   }, [userChallenges]);
-
-  useEffect(() => {
-    localStorage.setItem('nebula_transactions', JSON.stringify(userTransactions));
-  }, [userTransactions]);
 
   const stats = [
     { label: "Traders Funded", value: "15k+" },
@@ -168,7 +162,7 @@ export default function App() {
       id: "starter-10k",
       title: "Nebula 10K",
       size: 10000,
-      price: "$1",
+      price: "$89",
       features: ["10% Profit Target", "5% Daily Drawdown", "10% Max Drawdown", "1:10 Leverage"],
       accent: "from-blue-500/20 to-cyan-500/20",
       profitTarget: 10,
@@ -180,7 +174,7 @@ export default function App() {
       id: "starter-20k",
       title: "Nebula 20K",
       size: 20000,
-      price: "$1",
+      price: "$159",
       features: ["10% Profit Target", "5% Daily Drawdown", "10% Max Drawdown", "1:10 Leverage"],
       accent: "from-blue-500/20 to-cyan-500/20",
       profitTarget: 10,
@@ -192,7 +186,7 @@ export default function App() {
       id: "pro-50k",
       title: "Nebula 50K",
       size: 50000,
-      price: "$1",
+      price: "$299",
       features: ["8% Profit Target", "5% Daily Drawdown", "12% Max Drawdown", "1:10 Leverage"],
       accent: "from-purple-500/20 to-blue-500/20",
       popular: true,
@@ -205,7 +199,7 @@ export default function App() {
       id: "pro-100k",
       title: "Nebula 100K",
       size: 100000,
-      price: "$1",
+      price: "$499",
       features: ["8% Profit Target", "5% Daily Drawdown", "12% Max Drawdown", "1:10 Leverage"],
       accent: "from-purple-500/20 to-blue-500/20",
       profitTarget: 8,
@@ -217,7 +211,7 @@ export default function App() {
       id: "elite-150k",
       title: "Nebula 150K",
       size: 150000,
-      price: "$1",
+      price: "$749",
       features: ["8% Profit Target", "5% Daily Drawdown", "12% Max Drawdown", "1:10 Leverage"],
       accent: "from-indigo-500/20 to-purple-500/20",
       profitTarget: 8,
@@ -229,7 +223,7 @@ export default function App() {
       id: "elite-200k",
       title: "Nebula 200K",
       size: 200000,
-      price: "$1",
+      price: "$999",
       features: ["8% Profit Target", "5% Daily Drawdown", "12% Max Drawdown", "1:10 Leverage"],
       accent: "from-indigo-500/20 to-purple-500/20",
       profitTarget: 8,
@@ -239,174 +233,54 @@ export default function App() {
     }
   ];
 
-  const startChallenge = async (challengeData: any) => {
+  const startChallenge = (challengeData: any) => {
     if (!user) {
       setIsAuthModalOpen(true);
       return;
     }
 
-    if (!razorpayKeyId) {
-      alert("Payment is not configured. Please contact support.");
-      return;
-    }
+    setPendingChallenge(challengeData);
+    setIsPaymentModalOpen(true);
+  };
 
-    try {
-      const postWithFallback = async (
-        primaryUrl: string,
-        fallbackUrl: string,
-        payload: Record<string, unknown>
-      ) => {
-        const requestConfig: RequestInit = {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        };
+  const handlePaymentSubmit = (screenshot: string) => {
+    if (!pendingChallenge) return;
 
-        const tryRequest = async (url: string) => {
-          try {
-            const response = await fetch(url, requestConfig);
-            const data = await response.json().catch(() => ({}));
-            return { response, data };
-          } catch {
-            return null;
-          }
-        };
+    const newChallenge: Challenge = {
+      id: Math.random().toString(36).substr(2, 9),
+      title: pendingChallenge.title,
+      size: pendingChallenge.size,
+      price: pendingChallenge.price,
+      profitTarget: pendingChallenge.profitTarget,
+      dailyDrawdown: pendingChallenge.dailyDrawdown,
+      maxDrawdown: pendingChallenge.maxDrawdown,
+      leverage: pendingChallenge.leverage,
+      status: 'ACTIVE',
+      initialBalance: pendingChallenge.size,
+      currentBalance: pendingChallenge.size,
+      equity: pendingChallenge.size,
+      maxEquityToday: pendingChallenge.size,
+      startDate: Date.now(),
+      history: [],
+      // Optional: Store payment proof if needed in types
+      // paymentProof: screenshot
+    };
 
-        const primaryResult = await tryRequest(primaryUrl);
-        if (primaryResult?.response.ok) {
-          return primaryResult.data;
-        }
-
-        const fallbackResult = await tryRequest(fallbackUrl);
-        if (fallbackResult?.response.ok) {
-          return fallbackResult.data;
-        }
-
-        const message =
-          (fallbackResult?.data as any)?.error ||
-          (fallbackResult?.data as any)?.message ||
-          (primaryResult?.data as any)?.error ||
-          (primaryResult?.data as any)?.message ||
-          "Request failed";
-
-        const details =
-          (fallbackResult?.data as any)?.details ||
-          (primaryResult?.data as any)?.details;
-
-        const detailParts = [
-          details?.code ? `code=${details.code}` : "",
-          details?.reason ? `reason=${details.reason}` : "",
-          details?.source ? `source=${details.source}` : "",
-          details?.step ? `step=${details.step}` : "",
-        ].filter(Boolean);
-
-        throw new Error(
-          detailParts.length > 0
-            ? `${message} (${detailParts.join(", ")})`
-            : message
-        );
-      };
-
-      // 1. Create Order on Server
-      const order = await postWithFallback(
-        "/api/payment/order",
-        "/.netlify/functions/payment-order",
-        {
-          amount: 1, // All accounts are 1 INR for now
-          currency: "INR",
-          receipt: `receipt_${Date.now()}`,
-        }
-      );
-
-      if (!order.id) {
-        alert("Failed to create payment order. Please try again.");
-        return;
-      }
-
-      // 2. Open Razorpay Checkout
-      const options = {
-        key: razorpayKeyId,
-        amount: order.amount,
-        currency: order.currency,
-        name: "Nebula Funded",
-        description: `Purchase ${challengeData.title}`,
-        order_id: order.id,
-        handler: async (response: any) => {
-          // 3. Verify Payment on Server
-          const verification = await postWithFallback(
-            "/api/payment/verify",
-            "/.netlify/functions/payment-verify",
-            {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            }
-          );
-
-          if (verification.success) {
-            // 4. Payment Successful - Add Challenge and Transaction
-            const newChallenge: Challenge = {
-              id: Math.random().toString(36).substr(2, 9),
-              title: challengeData.title,
-              size: challengeData.size,
-              price: challengeData.price,
-              profitTarget: challengeData.profitTarget,
-              dailyDrawdown: challengeData.dailyDrawdown,
-              maxDrawdown: challengeData.maxDrawdown,
-              leverage: challengeData.leverage,
-              status: 'ACTIVE',
-              initialBalance: challengeData.size,
-              currentBalance: challengeData.size,
-              equity: challengeData.size,
-              maxEquityToday: challengeData.size,
-              startDate: Date.now(),
-              history: []
-            };
-
-            const newTransaction = {
-              id: Math.random().toString(36).substr(2, 9),
-              challengeId: newChallenge.id,
-              challengeTitle: newChallenge.title,
-              amount: 1,
-              currency: "INR",
-              status: 'SUCCESS',
-              timestamp: Date.now(),
-              paymentId: response.razorpay_payment_id,
-              orderId: response.razorpay_order_id,
-            };
-
-            setUserChallenges(prev => [newChallenge, ...prev]);
-            setUserTransactions(prev => [newTransaction, ...prev]);
-            setActiveChallenge(newChallenge);
-            setView('DASHBOARD');
-          } else {
-            alert("Payment verification failed. Please contact support.");
-          }
-        },
-        prefill: {
-          name: user.displayName || "",
-          email: user.email || "",
-        },
-        theme: {
-          color: "#00F5FF",
-        },
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
-    } catch (error) {
-      console.error("Payment error:", error);
-      alert(
-        error instanceof Error
-          ? `Payment error: ${error.message}`
-          : "An error occurred during the payment process."
-      );
-    }
+    setUserChallenges(prev => [newChallenge, ...prev]);
+    setActiveChallenge(newChallenge);
+    setView('TERMINAL');
+    setIsPaymentModalOpen(false);
+    setPendingChallenge(null);
   };
 
   const openDashboard = (c: Challenge) => {
     setActiveChallenge(c);
     setView('DASHBOARD');
+  };
+
+  const resumeChallenge = (c: Challenge) => {
+    setActiveChallenge(c);
+    setView('TERMINAL');
   };
 
   const handleBreach = () => {
@@ -423,7 +297,6 @@ export default function App() {
       <Profile 
         user={{ displayName: user.displayName, email: user.email }}
         challenges={userChallenges}
-        transactions={userTransactions}
         onBack={() => setView('LANDING')}
         onViewChallenge={(c) => {
           setActiveChallenge(c);
@@ -934,6 +807,13 @@ export default function App() {
         isOpen={isAuthModalOpen} 
         onClose={() => setIsAuthModalOpen(false)} 
       />
+      <PaymentModal 
+        isOpen={isPaymentModalOpen} 
+        onClose={() => setIsPaymentModalOpen(false)}
+        challengeData={pendingChallenge}
+        onPaymentSubmit={handlePaymentSubmit}
+      />
+      <PromoBanner />
     </div>
   );
 }

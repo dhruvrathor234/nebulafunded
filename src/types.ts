@@ -34,23 +34,11 @@ export interface Challenge {
   dailyDrawdown: number;
   maxDrawdown: number;
   leverage: number;
-  status: 'ACTIVE' | 'BREACHED' | 'SUCCESS';
+  status: 'ACTIVE' | 'BREACHED' | 'SUCCESS' | 'PENDING_VERIFICATION';
   initialBalance: number;
   currentBalance: number;
   equity: number;
   maxEquityToday: number;
   startDate: number;
   history: Trade[];
-}
-
-export interface Transaction {
-  id: string;
-  challengeId: string;
-  challengeTitle: string;
-  amount: number;
-  currency: string;
-  status: 'SUCCESS' | 'FAILED' | 'PENDING';
-  timestamp: number;
-  paymentId?: string;
-  orderId?: string;
 }

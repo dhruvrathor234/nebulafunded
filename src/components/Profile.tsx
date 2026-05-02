@@ -18,12 +18,11 @@ interface ProfileProps {
     email: string | null;
   };
   challenges: Challenge[];
-  transactions: any[];
   onBack: () => void;
   onViewChallenge: (challenge: Challenge) => void;
 }
 
-const Profile: React.FC<ProfileProps> = ({ user, challenges, transactions, onBack, onViewChallenge }) => {
+const Profile: React.FC<ProfileProps> = ({ user, challenges, onBack, onViewChallenge }) => {
   const hasPassedChallenge = challenges.some(c => c.status === 'SUCCESS');
   const activeChallenges = challenges.filter(c => c.status === 'ACTIVE');
   const completedChallenges = challenges.filter(c => c.status !== 'ACTIVE');
@@ -225,54 +224,6 @@ const Profile: React.FC<ProfileProps> = ({ user, challenges, transactions, onBac
               </div>
             </div>
 
-            {/* Transaction History */}
-            <div>
-              <h3 className="text-xl font-display font-bold uppercase tracking-tighter mb-6">Transaction History</h3>
-              <div className="glass rounded-[2rem] border-white/5 overflow-hidden">
-                <div className="overflow-x-auto no-scrollbar">
-                  <table className="w-full text-left text-sm min-w-[600px]">
-                    <thead className="bg-white/5 text-white/20 uppercase font-bold text-[10px] tracking-widest">
-                      <tr>
-                        <th className="px-8 py-4">Transaction ID</th>
-                        <th className="px-8 py-4">Challenge</th>
-                        <th className="px-8 py-4">Amount</th>
-                        <th className="px-8 py-4">Status</th>
-                        <th className="px-8 py-4">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {transactions.map((t) => (
-                        <tr key={t.id} className="hover:bg-white/5 transition-colors">
-                          <td className="px-8 py-5 font-mono text-white/60">{t.id}</td>
-                          <td className="px-8 py-5">
-                            <div className="font-bold">{t.challengeTitle}</div>
-                            <div className="text-[10px] text-white/30 font-mono">ID: {t.challengeId}</div>
-                          </td>
-                          <td className="px-8 py-5 font-mono text-success">
-                            {t.amount} {t.currency}
-                          </td>
-                          <td className="px-8 py-5">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${t.status === 'SUCCESS' ? 'bg-success/20 text-success' : 'bg-error/20 text-error'}`}>
-                              {t.status}
-                            </span>
-                          </td>
-                          <td className="px-8 py-5 text-white/40 font-mono">
-                            {new Date(t.timestamp).toLocaleDateString()}
-                          </td>
-                        </tr>
-                      ))}
-                      {transactions.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="px-8 py-10 text-center text-white/20 italic">
-                            No transactions found.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </main>
